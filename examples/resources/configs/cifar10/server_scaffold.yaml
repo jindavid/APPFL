@@ -46,9 +46,8 @@ server_configs:
   scheduler: "SyncScheduler"
   scheduler_kwargs:
     same_init_model: True
-  aggregator: "FedAvgAggregator"
-  aggregator_kwargs:
-    client_weights_mode: "equal"
+  aggregator: "SCAFFOLDAggregator"
+  aggregator_kwargs: {}
   device: "cuda"
   num_global_epochs: 800
   logging_output_dirname: "./output"
