@@ -6,7 +6,7 @@ client_configs:
     num_local_epochs: 5
     optim: "Adam"
     optim_args:
-      lr: 0.05
+      lr: 0.01
     # Loss function
     loss_fn_path: "./resources/loss/celoss.py"
     loss_fn_name: "CELoss"
@@ -57,3 +57,6 @@ server_configs:
       server_uri: localhost:50051
       max_message_size: 1048576
       use_ssl: False
+  val_data_configs:
+    dataset_path: "./resources/dataset/cifar10_dataset.py"
+    dataset_name: "get_cifar10_val_global"

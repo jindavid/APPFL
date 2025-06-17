@@ -6,7 +6,7 @@ client_configs:
     num_local_epochs: 5
     optim: "Adam"
     optim_args:
-      lr: 0.01
+      lr: 0.05
     # Loss function
     loss_fn_path: "./resources/loss/celoss.py"
     loss_fn_name: "CELoss"
