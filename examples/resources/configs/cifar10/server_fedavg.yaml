@@ -50,7 +50,7 @@ server_configs:
   aggregator_kwargs:
     client_weights_mode: "equal"
   device: "cuda"
-  num_global_epochs: 800
+  num_global_epochs: 100
   logging_output_dirname: "./output"
   logging_output_filename: "result"
   comm_configs:
@@ -58,3 +58,6 @@ server_configs:
       server_uri: localhost:50051
       max_message_size: 1048576
       use_ssl: False
+  val_data_configs:
+    dataset_path: "./resources/dataset/cifar10_dataset.py"
+    dataset_name: "get_cifar10_val_global"

@@ -54,3 +54,27 @@ def get_cifar10(
         raise ValueError(f"Invalid partition strategy: {partition_strategy}")
 
     return train_datasets[client_id], test_dataset
+
+def get_cifar10_val_global():
+    """
+    Return the CIFAR10 validation dataset for global model.
+    """
+    # Get the download directory for dataset
+    dir = os.getcwd() + "/datasets/RawData"
+
+    # Root download the data if not already available.
+    test_data_raw = torchvision.datasets.CIFAR10(
+        dir, download=True, train=False, transform=transforms.ToTensor()
+    )
+
+    # Obtain the testdataset
+    test_data_input = []
+    test_data_label = []
+    for idx in range(len(test_data_raw)):
+        test_data_input.append(test_data_raw[idx][0].tolist())
+        test_data_label.append(test_data_raw[idx][1])
+    test_dataset = Dataset(
+        torch.FloatTensor(test_data_input), torch.tensor(test_data_label)
+    )
+
+    return test_dataset

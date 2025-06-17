@@ -18,6 +18,11 @@ data_configs:
     output_dirname: "./output"
     output_filename: "visualization.pdf"
 
+wandb_configs:
+  enable_wandb: True
+  project: "appfl"
+  exp_name: "appfl-cifar10"
+
 comm_configs:
   grpc_configs:
     server_uri: localhost:50051

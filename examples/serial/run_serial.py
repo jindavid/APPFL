@@ -7,6 +7,8 @@ import argparse
 from omegaconf import OmegaConf
 from appfl.agent import ClientAgent, ServerAgent
 
+import wandb
+
 argparser = argparse.ArgumentParser()
 argparser.add_argument(
     "--server_config", type=str, default="./resources/configs/mnist/server_fedavg.yaml"
@@ -89,3 +91,5 @@ while not server_agent.training_finished():
     # Load the new global model from the server
     for client_agent, new_global_model_future in zip(client_agents, new_global_models):
         client_agent.load_parameters(new_global_model_future.result())
+    val_loss, val_accuracy = server_agent.server_validate()
+    wandb.log({"val_loss": val_loss, "val_accuracy": val_accuracy})
