@@ -180,14 +180,22 @@ class VanillaTrainer(BaseTrainer):
                     self.val_results["val_accuracy"].append(val_accuracy)
                 per_epoch_time = time.time() - start_time
                 if self.enabled_wandb:
-                    wandb.log(
-                        {
-                            f"{self.wandb_logging_id}/train-loss (during train)": train_loss,
-                            f"{self.wandb_logging_id}/train-accuracy (during train)": train_accuracy,
-                            f"{self.wandb_logging_id}/val-loss (during train)": val_loss,
-                            f"{self.wandb_logging_id}/val-accuracy (during train)": val_accuracy,
-                        }
-                    )
+                    if do_validation:
+                        wandb.log(
+                            {
+                                f"{self.wandb_logging_id}/train-loss (during train)": train_loss,
+                                f"{self.wandb_logging_id}/train-accuracy (during train)": train_accuracy,
+                                f"{self.wandb_logging_id}/val-loss (during train)": val_loss,
+                                f"{self.wandb_logging_id}/val-accuracy (during train)": val_accuracy,
+                            }
+                        )
+                    else:
+                        wandb.log(
+                            {
+                                f"{self.wandb_logging_id}/train-loss (during train)": train_loss,
+                                f"{self.wandb_logging_id}/train-accuracy (during train)": train_accuracy,
+                            }
+                        )
                 self.logger.log_content(
                     [self.round, epoch, per_epoch_time, train_loss, train_accuracy]
                     if (not do_validation) and (not do_pre_validation)
