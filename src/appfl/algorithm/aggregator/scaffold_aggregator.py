@@ -46,39 +46,49 @@ class SCAFFOLDAggregator(BaseAggregator):
             self.named_parameters = None
 
         self.global_state = None  # Global model parameters (x in the paper)
-        self.server_control_variates = None  # Server control variates (c in the paper)
         self.client_control_variates = {}  # Client control variates (c_i in the paper)
-
         self.step = {}
+        
+        # Initialize server control variates if model is provided
+        if self.model is not None:
+            self.server_control_variates = {
+                name: torch.zeros_like(param)
+                for name, param in self.model.named_parameters()
+                if param.requires_grad
+            }
+            
+            # Count total scalar parameters for better debugging
+            total_scalar_params = sum(
+                param.numel() for name, param in self.model.named_parameters()
+                if param.requires_grad
+            )
+            print(f"SCAFFOLD INFO: Server control variates initialized - {len(self.server_control_variates)} parameter tensors covering {total_scalar_params:,} total scalar parameters")
+        else:
+            self.server_control_variates = {}
+
 
     def get_parameters(self, **kwargs) -> Dict:
         """
         Returns the global model parameters along with server control variates.
-        The server control variates are included with special prefixes so that
-        the SCAFFOLD trainer can extract them.
+        Returns a structured dictionary with 'model_state' and 'server_control_variates' sections.
         """
         if self.global_state is None:
             if self.model is not None:
-                return copy.deepcopy(self.model.state_dict())
+                model_state = copy.deepcopy(self.model.state_dict())
+                total_scalar_params = sum(param.numel() for param in self.server_control_variates.values())
+                print(f"SCAFFOLD INFO: Sending {len(self.server_control_variates)} server control variate tensors covering {total_scalar_params:,} total scalar parameters to clients")
+                return {
+                    "model_state": model_state,
+                    "server_control_variates": {k: v.clone() for k, v in self.server_control_variates.items()}
+                }
             else:
                 raise ValueError("Model is not provided to the aggregator.")
         
-        # Initialize server control variates if not already done
-        if self.server_control_variates is None:
-            self.server_control_variates = {
-                name: torch.zeros_like(param)
-                for name, param in self.global_state.items()
-                if param.requires_grad
-            }
-        
-        # Return model parameters with server control variates included
-        result = {k: v.clone() for k, v in self.global_state.items()}
-        
-        # Add server control variates with special prefix
-        for name, param in self.server_control_variates.items():
-            result[f"__scaffold_server_cv_{name}"] = param.clone()
-        
-        return result
+        # Return structured dictionary with model parameters and server control variates
+        return {
+            "model_state": {k: v.clone() for k, v in self.global_state.items()},
+            "server_control_variates": {k: v.clone() for k, v in self.server_control_variates.items()}
+        }
 
     def aggregate(
         self, local_models: Dict[Union[str, int], Union[Dict, OrderedDict]], **kwargs
@@ -99,56 +109,35 @@ class SCAFFOLDAggregator(BaseAggregator):
         if self.global_state is None:
             # Extract first model to initialize global state
             first_model_data = list(local_models.values())[0]
+            first_model_state = first_model_data["model_state"]
             
             if self.model is not None:
                 try:
                     # Initialize from model, but only include parameters that exist in client data
                     self.global_state = {
                         name: self.model.state_dict()[name]
-                        for name in first_model_data
-                        if not name.startswith("__scaffold_")
+                        for name in first_model_state
                     }
                 except:  # noqa E722
                     self.global_state = {
                         name: tensor.detach().clone()
-                        for name, tensor in first_model_data.items()
-                        if not name.startswith("__scaffold_")
+                        for name, tensor in first_model_state.items()
                     }
             else:
                 self.global_state = {
                     name: tensor.detach().clone()
-                    for name, tensor in first_model_data.items()
-                    if not name.startswith("__scaffold_")
+                    for name, tensor in first_model_state.items()
                 }
-
-        # Initialize server control variates if needed
-        if self.server_control_variates is None:
-            self.server_control_variates = {
-                name: torch.zeros_like(param)
-                for name, param in self.global_state.items()
-                if param.requires_grad
-            }
 
         # Separate model parameters from SCAFFOLD control variates
         clean_local_models = {}
         client_control_updates = {}
         
         for client_id, model_data in local_models.items():
-            clean_model = {}
-            client_cv = {}
-            
-            for param_name, param_value in model_data.items():
-                if param_name.startswith("__scaffold_client_cv_"):
-                    # Extract client control variate
-                    original_name = param_name.replace("__scaffold_client_cv_", "")
-                    client_cv[original_name] = param_value
-                elif not param_name.startswith("__scaffold_"):
-                    # Regular model parameter
-                    clean_model[param_name] = param_value
-            
-            clean_local_models[client_id] = clean_model
-            if client_cv:
-                client_control_updates[client_id] = client_cv
+            # Structured format
+            clean_local_models[client_id] = model_data["model_state"]
+            if "client_control_variates" in model_data:
+                client_control_updates[client_id] = model_data["client_control_variates"]
 
         # 1. Aggregate model parameters (same as FedAvg)
         self.compute_steps(clean_local_models)
@@ -166,7 +155,10 @@ class SCAFFOLDAggregator(BaseAggregator):
 
         # 2. Update server control variates (SCAFFOLD-specific)
         if client_control_updates:
+            print(f"SCAFFOLD INFO: Received client control updates from {len(client_control_updates)} clients")
             self._update_server_control_variates(client_control_updates)
+        else:
+            print("SCAFFOLD INFO: No client control updates received")
 
         if self.model is not None:
             self.model.load_state_dict(self.global_state, strict=False)
@@ -256,6 +248,6 @@ class SCAFFOLDAggregator(BaseAggregator):
         Returns:
             Dictionary of server control variates or None if not initialized
         """
-        if self.server_control_variates is None:
+        if not self.server_control_variates:
             return None
         return {k: v.clone() for k, v in self.server_control_variates.items()}

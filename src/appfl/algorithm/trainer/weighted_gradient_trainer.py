@@ -49,6 +49,15 @@ class WeightedGradientTrainer(VanillaTrainer):
         # Whether gradient weighting is enabled
         self.use_gradient_weighting = train_configs.get("use_gradient_weighting", True)
         
+        # Importance weighting options
+        self.use_uniform_weights = train_configs.get("use_uniform_weights", False)
+        self.use_interpolated_weights = train_configs.get("use_interpolated_weights", False)
+        self.lambda_interp = train_configs.get("lambda_interp", 0.5)  # Interpolation parameter
+        
+        # Unified power transformation: (weight)^power_lambda
+        self.use_power = train_configs.get("use_power", False)
+        self.power_lambda = train_configs.get("power_lambda", 0.5)  # Power parameter (0.5=sqrt, 1.0=no transform)
+        
         # Global label distribution (will be set externally)
         self.global_label_distribution = {}
         
@@ -57,6 +66,13 @@ class WeightedGradientTrainer(VanillaTrainer):
         
         if self.logger:
             self.logger.info(f"WeightedGradientTrainer initialized with gradient weighting: {self.use_gradient_weighting}")
+            self.logger.info(f"Using uniform weights: {self.use_uniform_weights}")
+            self.logger.info(f"Using interpolated weights: {self.use_interpolated_weights}")
+            self.logger.info(f"Using power transformation: {self.use_power}")
+            if self.use_power:
+                self.logger.info(f"Power transformation parameter: {self.power_lambda}")
+            if self.use_interpolated_weights:
+                self.logger.info(f"Lambda interpolation parameter: {self.lambda_interp}")
 
     def set_global_label_distribution(self, global_distribution: Dict[int, float]):
         """
@@ -110,6 +126,7 @@ class WeightedGradientTrainer(VanillaTrainer):
     def _compute_label_weights(self):
         """
         Compute label weights based on global vs local distribution.
+        Applies importance weighting transformations based on configuration.
         """
         if not self.global_label_distribution:
             self.logger.warning("Global label distribution not set. Cannot compute weights.")
@@ -119,22 +136,60 @@ class WeightedGradientTrainer(VanillaTrainer):
         if not self.local_label_distribution:
             self._compute_local_label_distribution()
         
-        # Compute weights: w(x) = p_global(x) / p_local(x)
+        # Check for uniform weights option first
+        if self.use_uniform_weights:
+            # Set all weights to 1.0 (uniform weighting)
+            self.label_weights = {}
+            for label in self.global_label_distribution:
+                self.label_weights[label] = 1.0
+            
+            if self.logger:
+                self.logger.info("Using uniform weights (all weights = 1.0)")
+                self.logger.info(f"Label weights: {self.label_weights}")
+            return
+        
+        # Compute weights based on selected method
         self.label_weights = {}
         for label in self.global_label_distribution:
             global_prob = self.global_label_distribution[label]
             local_prob = self.local_label_distribution.get(label, 0.0)
             
             if local_prob > 0:
-                weight = global_prob / local_prob
+                if self.use_interpolated_weights:
+                    # Interpolated importance weighting: p_global / {(1-λ)*p_local + λ*p_global}
+                    denominator = (1 - self.lambda_interp) * local_prob + self.lambda_interp * global_prob
+                    if denominator > 0:
+                        weight = global_prob / denominator
+                    else:
+                        weight = 0.0
+                else:
+                    # Standard importance weighting: w(x) = p_global(x) / p_local(x)
+                    weight = global_prob / local_prob
             else:
                 # If client doesn't have this label, set weight to 0
                 weight = 0.0
+            
+            # Apply power transformation: weight^power_lambda
+            if weight > 0 and self.use_power:
+                weight = np.power(weight, self.power_lambda)
                 
             self.label_weights[label] = weight
         
         if self.logger:
-            self.logger.info(f"Computed label weights: {self.label_weights}")
+            method_info = ""
+            if self.use_interpolated_weights:
+                method_info = f" using interpolated IW (λ={self.lambda_interp})"
+            else:
+                method_info = " using standard IW"
+            
+            transformation_info = ""
+            if self.use_power:
+                if self.power_lambda == 0.5:
+                    transformation_info = " with square root transformation"
+                else:
+                    transformation_info = f" with power transformation (λ={self.power_lambda})"
+            
+            self.logger.info(f"Computed label weights{method_info}{transformation_info}: {self.label_weights}")
 
     def _train_batch(
         self, optimizer: torch.optim.Optimizer, data, target

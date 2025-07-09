@@ -1,5 +1,5 @@
 """
-Serial simulation of Federated learning.
+Serial simulation of SCAFFOLD Federated learning.
 It should be noted that only synchronous FL can be simulated in this way.
 """
 
@@ -16,18 +16,22 @@ def compute_model_differences(local_model, global_model):
     Compute sum of squared differences between local and global model weights.
     
     Args:
-        local_model: Local model state dict
-        global_model: Global model state dict
+        local_model: Structured dict with 'model_state' section
+        global_model: Structured dict with 'model_state' section
         
     Returns:
         float: Sum of squared differences
     """
+    # Extract model states from structured format
+    local_model_state = local_model["model_state"]
+    global_model_state = global_model["model_state"]
+    
     all_diffs = []
     
-    for param_name in local_model.keys():
-        if param_name in global_model:
-            local_param = local_model[param_name]
-            global_param = global_model[param_name]
+    for param_name in local_model_state.keys():
+        if param_name in global_model_state:
+            local_param = local_model_state[param_name]
+            global_param = global_model_state[param_name]
             
             # Compute squared differences
             diff = (local_param - global_param) ** 2
@@ -42,10 +46,10 @@ def compute_model_differences(local_model, global_model):
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument(
-    "--server_config", type=str, default="./resources/configs/mnist/server_fedavg.yaml"
+    "--server_config", type=str, default="./resources/configs/mnist/server_scaffold.yaml"
 )
 argparser.add_argument(
-    "--client_config", type=str, default="./resources/configs/cifar10/client_1.yaml"
+    "--client_config", type=str, default="./resources/configs/mnist/client_1.yaml"
 )
 argparser.add_argument("--num_clients", type=int, default=10)
 args = argparser.parse_args()
@@ -101,10 +105,9 @@ for i in range(args.num_clients):
     )
 
 while not server_agent.training_finished():
-    new_global_models = []
     local_models_for_comparison = []
     
-    for client_agent in client_agents:
+    for i, client_agent in enumerate(client_agents):
         # Client local training
         client_agent.train()
         local_model = client_agent.get_parameters()
@@ -116,18 +119,18 @@ while not server_agent.training_finished():
         # Store local model for comparison later
         local_models_for_comparison.append((client_agent.get_id(), local_model.copy()))
         
-        # "Send" local model to server and get a Future object for the new global model
-        # The Future object will be resolved when the server receives local models from all clients
-        new_global_model_future = server_agent.global_update(
+        # "Send" local model to server 
+        # For SCAFFOLD, only block on the last client to ensure proper aggregation
+        is_last_client = (i == len(client_agents) - 1)
+        server_agent.global_update(
             client_id=client_agent.get_id(),
             local_model=local_model,
-            blocking=False,
+            blocking=is_last_client,
             **metadata,
         )
-        new_global_models.append(new_global_model_future)
     
-    # Get the aggregated global model
-    aggregated_global_model = new_global_models[0].result()  # All futures return the same global model
+    # Get the aggregated global model with control variates
+    aggregated_global_model = server_agent.get_parameters(serial_run=True)
     
     # Compute differences between local models and aggregated global model
     diffs = []
@@ -141,9 +144,9 @@ while not server_agent.training_finished():
     overall_max_diff = max(diffs)
     overall_mean_diff = np.mean(diffs)
     
-    # Load the new global model from the server
-    for client_agent, new_global_model_future in zip(client_agents, new_global_models):
-        client_agent.load_parameters(new_global_model_future.result())
+    # Load the new global model to all clients
+    for client_agent in client_agents:
+        client_agent.load_parameters(aggregated_global_model)
     
     val_loss, val_accuracy = server_agent.server_validate()
     
@@ -153,4 +156,4 @@ while not server_agent.training_finished():
         "val_accuracy": val_accuracy,
         "max_diff": overall_max_diff,
         "mean_diff": overall_mean_diff,
-    })
+    }) 

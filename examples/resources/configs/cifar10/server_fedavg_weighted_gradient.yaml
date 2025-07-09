@@ -6,7 +6,7 @@ client_configs:
     num_local_epochs: 5
     optim: "Adam"
     optim_args:
-      lr: 0.01
+      lr: 0.005
     # Loss function
     loss_fn_path: "./resources/loss/celoss.py"
     loss_fn_name: "CELoss"
@@ -17,6 +17,12 @@ client_configs:
     metric_name: "accuracy"
     # Gradient weighting configuration
     use_gradient_weighting: True
+    # Importance weighting (IW) options
+    use_uniform_weights: False       # Use uniform weights (all weights = 1.0)
+    use_interpolated_weights: False  # Use interpolated IW: p_global / {(1-λ)*p_local + λ*p_global}
+    lambda_interp: 0.5               # Interpolation parameter λ ∈ [0,1] (0=standard IW, 1=uniform)
+    use_power: False                 # Enable power transformation: (weight)^power_lambda
+    power_lambda: 0.5                # Power parameter (0.5=sqrt, 1.0=no transform, 0=uniform)
     # Differential privacy
     use_dp: False
     epsilon: 1

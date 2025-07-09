@@ -6,13 +6,13 @@ client_configs:
     num_local_epochs: 5
     optim: "Adam"
     optim_args:
-      lr: 0.05
+      lr: 0.005
     # Loss function
     loss_fn_path: "./resources/loss/celoss.py"
     loss_fn_name: "CELoss"
     # Client validation
-    do_validation: True
-    do_pre_validation: True
+    do_validation: False
+    do_pre_validation: False
     metric_path: "./resources/metric/acc.py"
     metric_name: "accuracy"
     # Differential privacy

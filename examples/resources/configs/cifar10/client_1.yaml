@@ -14,6 +14,9 @@ data_configs:
     num_clients: 10
     client_id: 0
     partition_strategy: "dirichlet_noniid"
+    # Dirichlet parameters to control data distribution heterogeneity
+    alpha1: 10.0        # Controls client sample size distribution (higher = more even)
+    alpha2: 5.0        # Controls class distribution per client (higher = more even, default: 0.5)
     visualization: True
     output_dirname: "./output"
     output_filename: "visualization.pdf"

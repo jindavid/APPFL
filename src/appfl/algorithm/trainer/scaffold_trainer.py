@@ -88,44 +88,34 @@ class SCAFFOLDTrainer(BaseTrainer):
         self.device_config, self.device = parse_device_str(self.train_configs.device)
         
         # SCAFFOLD-specific attributes
-        self.client_control_variates = None  # c_i in the paper
-        self.server_control_variates = None  # c in the paper
+        self.server_control_variates = None  # c in the paper (received from server)
         self.initial_model_state = None  # y_i at the beginning of the round
+        
+        # Initialize client control variates (c_i) as zeros
+        self.client_control_variates = {
+            name: torch.zeros_like(param)
+            for name, param in self.model.named_parameters()
+            if param.requires_grad
+        }
+        print(f"SCAFFOLD INFO: Client control variates initialized in __init__ with {len(self.client_control_variates)} parameters")
 
-    def set_parameters(self, model_parameters: Dict, **kwargs):
+    def load_parameters(self, params: Dict, **kwargs):
         """
-        Set model parameters received from the server.
-        Extract server control variates from the parameters.
-        
-        Args:
-            model_parameters: Dictionary containing model parameters and server control variates
+        Override BaseTrainer.load_parameters to handle SCAFFOLD control variates.
+        Expects structured format with 'model_state' and 'server_control_variates' sections.
         """
-        # Separate model parameters from server control variates
-        clean_model_params = {}
-        server_control_variates = {}
         
-        for param_name, param_value in model_parameters.items():
-            if param_name.startswith("__scaffold_server_cv_"):
-                # Extract server control variate
-                original_name = param_name.replace("__scaffold_server_cv_", "")
-                server_control_variates[original_name] = param_value
-            else:
-                # Regular model parameter
-                clean_model_params[param_name] = param_value
+        # Structured format
+        clean_model_params = params["model_state"]
+        server_control_variates = params.get("server_control_variates", {})
         
         # Set model parameters
         self.model.load_state_dict(clean_model_params, strict=False)
         
-        # Store server control variates
+        # Store server control variates (keep on same device as model for efficiency)
         self.server_control_variates = server_control_variates
         
-        # Initialize client control variates if this is the first round
-        if self.client_control_variates is None:
-            self.client_control_variates = {
-                name: torch.zeros_like(param)
-                for name, param in self.model.named_parameters()
-                if param.requires_grad
-            }
+        print(f"SCAFFOLD INFO: Client received server control variates with {len(server_control_variates)} parameters")
 
     def train(self, **kwargs):
         """
@@ -235,14 +225,22 @@ class SCAFFOLDTrainer(BaseTrainer):
                     self.val_results["val_accuracy"].append(val_accuracy)
                 per_epoch_time = time.time() - start_time
                 if self.enabled_wandb:
-                    wandb.log(
-                        {
-                            f"{self.wandb_logging_id}/train-loss (during train)": train_loss,
-                            f"{self.wandb_logging_id}/train-accuracy (during train)": train_accuracy,
-                            f"{self.wandb_logging_id}/val-loss (during train)": val_loss,
-                            f"{self.wandb_logging_id}/val-accuracy (during train)": val_accuracy,
-                        }
-                    )
+                    if do_validation:
+                        wandb.log(
+                            {
+                                f"{self.wandb_logging_id}/train-loss (during train)": train_loss,
+                                f"{self.wandb_logging_id}/train-accuracy (during train)": train_accuracy,
+                                f"{self.wandb_logging_id}/val-loss (during train)": val_loss,
+                                f"{self.wandb_logging_id}/val-accuracy (during train)": val_accuracy,
+                            }
+                        )
+                    else:
+                        wandb.log(
+                            {
+                                f"{self.wandb_logging_id}/train-loss (during train)": train_loss,
+                                f"{self.wandb_logging_id}/train-accuracy (during train)": train_accuracy,
+                            }
+                        )
                 self.logger.log_content(
                     [self.round, epoch, per_epoch_time, train_loss, train_accuracy]
                     if (not do_validation) and (not do_pre_validation)
@@ -353,18 +351,22 @@ class SCAFFOLDTrainer(BaseTrainer):
     def get_parameters(self) -> Dict:
         """
         Return model parameters along with client control variates.
-        The client control variates are included with special prefixes.
+        Returns a structured dictionary with 'model_state' and 'client_control_variates' sections.
         """
         if not hasattr(self, "model_state"):
             self.model_state = copy.deepcopy(self.model.state_dict())
         
-        # Prepare the result with model parameters
-        result = copy.deepcopy(self.model_state)
+        # Prepare client control variates on CPU
+        client_control_variates_cpu = {
+            name: param.cpu() if param.is_cuda else param
+            for name, param in self.client_control_variates.items()
+        }
         
-        # Add client control variates with special prefix
-        if self.client_control_variates is not None:
-            for name, param in self.client_control_variates.items():
-                result[f"__scaffold_client_cv_{name}"] = param.cpu() if param.is_cuda else param
+        # Prepare structured result
+        result = {
+            "model_state": copy.deepcopy(self.model_state),
+            "client_control_variates": client_control_variates_cpu
+        }
         
         return (
             (result, self.val_results)
@@ -436,14 +438,12 @@ class SCAFFOLDTrainer(BaseTrainer):
         loss.backward()
         
         # Apply SCAFFOLD correction to gradients
-        if self.client_control_variates is not None and self.server_control_variates is not None:
-            for name, param in self.model.named_parameters():
-                if param.requires_grad and param.grad is not None:
-                    if name in self.client_control_variates and name in self.server_control_variates:
-                        # Apply SCAFFOLD correction: g_i(y_i) - c_i + c
-                        client_cv = self.client_control_variates[name].to(device)
-                        server_cv = self.server_control_variates[name].to(device)
-                        param.grad.data = param.grad.data - client_cv + server_cv
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                    # Apply SCAFFOLD correction: g_i(y_i) - c_i + c
+                client_cv = self.client_control_variates[name].to(device)
+                server_cv = self.server_control_variates[name].to(device)
+                param.grad.data = param.grad.data - client_cv + server_cv
         
         if getattr(self.train_configs, "clip_grad", False) or getattr(
             self.train_configs, "use_dp", False
@@ -479,10 +479,7 @@ class SCAFFOLDTrainer(BaseTrainer):
         - x: initial model parameters (at start of round)
         - y_i: final model parameters (after local training)
         """
-        if (self.client_control_variates is None or 
-            self.server_control_variates is None or 
-            self.initial_model_state is None):
-            return
+
         
         # Get local learning rate and number of local steps
         local_lr = self.train_configs.optim_args.lr
@@ -494,17 +491,19 @@ class SCAFFOLDTrainer(BaseTrainer):
             num_local_steps = self.train_configs.num_local_steps
         
         # Update client control variates
+        device = self.device
         for name, param in self.model.named_parameters():
-            if param.requires_grad and name in self.client_control_variates:
-                if name in self.server_control_variates and name in self.initial_model_state:
+            if name in self.client_control_variates:
                     # c_i^+ = c_i - c + (1/(K*η_l)) * (x - y_i)
-                    old_client_cv = self.client_control_variates[name]
-                    server_cv = self.server_control_variates[name]
-                    initial_param = self.initial_model_state[name]
-                    final_param = param.data.cpu()
+                    # Ensure all tensors are on the same device as the model for efficient computation
+                    old_client_cv = self.client_control_variates[name].to(device)
+                    server_cv = self.server_control_variates[name].to(device)
+                    initial_param = self.initial_model_state[name].to(device)
+                    final_param = param.data  # Already on model device
                     
                     correction_term = (initial_param - final_param) / (num_local_steps * local_lr)
                     
+                    # Store result on CPU for consistency and communication
                     self.client_control_variates[name] = (
                         old_client_cv - server_cv + correction_term
-                    ) 
+                    ).cpu() 

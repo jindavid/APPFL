@@ -1,7 +1,7 @@
 client_configs:
   train_configs:
-    # Local trainer
-    trainer: "SCAFFOLDTrainer"
+    # Local trainer with gradient weighting
+    trainer: "WeightedGradientTrainer"
     mode: "epoch"
     num_local_epochs: 5
     optim: "Adam"
@@ -15,6 +15,14 @@ client_configs:
     do_pre_validation: False
     metric_path: "./resources/metric/acc.py"
     metric_name: "accuracy"
+    # Gradient weighting configuration
+    use_gradient_weighting: True
+    # Importance weighting (IW) options - Interpolated Weights
+    use_uniform_weights: False       # Use uniform weights (all weights = 1.0)
+    use_interpolated_weights: True   # Use interpolated IW: p_global / {(1-λ)*p_local + λ*p_global}
+    lambda_interp: 0.3               # Interpolation parameter λ ∈ [0,1] (0=standard IW, 1=uniform)
+    use_power: False                 # Enable power transformation: (weight)^power_lambda
+    power_lambda: 0.5                # Power parameter (0.5=sqrt, 1.0=no transform, 0=uniform)
     # Differential privacy
     use_dp: False
     epsilon: 1
@@ -25,7 +33,7 @@ client_configs:
     train_batch_size: 64
     val_batch_size: 64
     train_data_shuffle: True
-    val_data_shuffle: True
+    val_data_shuffle: False
 
   model_configs:
     model_path: "./resources/model/resnet.py"
@@ -46,8 +54,9 @@ server_configs:
   scheduler: "SyncScheduler"
   scheduler_kwargs:
     same_init_model: True
-  aggregator: "SCAFFOLDAggregator"
-  aggregator_kwargs: {}
+  aggregator: "FedAvgAggregator"
+  aggregator_kwargs:
+    client_weights_mode: "equal"
   device: "cuda"
   num_global_epochs: 100
   logging_output_dirname: "./output"
@@ -59,4 +68,4 @@ server_configs:
       use_ssl: False
   val_data_configs:
     dataset_path: "./resources/dataset/cifar10_dataset.py"
-    dataset_name: "get_cifar10_val_global"
+    dataset_name: "get_cifar10_val_global" 

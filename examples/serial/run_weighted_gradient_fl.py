@@ -14,8 +14,39 @@ from omegaconf import OmegaConf
 from appfl.agent import ClientAgent, ServerAgent
 from appfl.algorithm.trainer.weighted_gradient_trainer import compute_global_label_distribution
 from torch.utils.data import DataLoader
+import torch
+import numpy as np
 
 import wandb
+
+def compute_model_differences(local_model, global_model):
+    """
+    Compute max and mean differences between local and global model weights.
+    
+    Args:
+        local_model: Local model state dict
+        global_model: Global model state dict
+        
+    Returns:
+        float: diff
+    """
+    all_diffs = []
+    
+    for param_name in local_model.keys():
+        if param_name in global_model:
+            local_param = local_model[param_name]
+            global_param = global_model[param_name]
+            
+            # Compute absolute differences
+            diff = (local_param - global_param) ** 2
+            all_diffs.append(diff.flatten())
+    
+    # Concatenate all parameter differences
+    all_diffs = torch.cat(all_diffs)
+    
+    diff = torch.sum(all_diffs).item()
+    
+    return diff
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument(
@@ -60,6 +91,10 @@ client_agents = [
     ClientAgent(client_agent_config=client_agent_configs[i])
     for i in range(args.num_clients)
 ]
+
+# Save both the server and client config files to wandb
+wandb.save(args.server_config)
+wandb.save(args.client_config)
 
 # Get additional client configurations from the server
 client_config_from_server = server_agent.get_client_configs()
@@ -108,6 +143,8 @@ print("Label distribution weights computed successfully!")
 
 while not server_agent.training_finished():
     new_global_models = []
+    local_models_for_comparison = []
+    
     for i, client_agent in enumerate(client_agents):
         print(f"Training client {client_agent.get_id()}...")
         
@@ -119,6 +156,9 @@ while not server_agent.training_finished():
         else:
             metadata = {}
         
+        # Store local model for comparison later
+        local_models_for_comparison.append((client_agent.get_id(), local_model.copy()))
+        
         # "Send" local model to server and get a Future object for the new global model
         # The Future object will be resolved when the server receives local models from all clients
         new_global_model_future = server_agent.global_update(
@@ -129,12 +169,42 @@ while not server_agent.training_finished():
         )
         new_global_models.append(new_global_model_future)
     
+    # Get the aggregated global model
+    aggregated_global_model = new_global_models[0].result()  # All futures return the same global model
+    
+    # Compute differences between local models and aggregated global model
+    diffs = []
+    
+    print("\nComputing model differences:")
+    for client_id, local_model in local_models_for_comparison:
+        diff = compute_model_differences(local_model, aggregated_global_model)
+        diffs.append(diff)
+    
+    # Compute statistics across all clients
+    overall_max_diff = max(diffs)
+    overall_mean_diff = np.mean(diffs)
+    
     # Load the new global model from the server (standard FedAvg aggregation)
     for client_agent, new_global_model_future in zip(client_agents, new_global_models):
         client_agent.load_parameters(new_global_model_future.result())
     
     val_loss, val_accuracy = server_agent.server_validate()    
-    wandb.log({"val_loss": val_loss, "val_accuracy": val_accuracy})
+    
+    # Log all metrics to wandb
+    wandb.log({
+        "val_loss": val_loss, 
+        "val_accuracy": val_accuracy,
+        "max_diff": overall_max_diff,
+        "mean_diff": overall_mean_diff,
+    })
+    
+    # # Log individual client differences
+    # for i, (client_id, _) in enumerate(local_models_for_comparison):
+    #     wandb.log({
+    #         f"{client_id}_max_diff": max_diffs[i],
+    #         f"{client_id}_mean_diff": mean_diffs[i],
+    #         "round": round_num
+    #     })
 
 
 print("Weighted gradient federated learning completed!") 
