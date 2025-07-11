@@ -1,0 +1,125 @@
+#!/bin/bash
+#PBS -l select=1:system=polaris
+#PBS -l walltime=02:00:00
+#PBS -q preemptable
+#PBS -l filesystems=home
+#PBS -k doe
+#PBS -A ParaLLMs
+#PBS -j oe
+#PBS -o $HOME/logs/experiment_runner.log
+
+# This script automates running multiple experiment configurations in parallel on allocated GPUs.
+# 1. It generates a set of server configuration files using generate_configs.py.
+# 2. It discovers the allocated nodes and GPUs from the PBS environment.
+# 3. It assigns each generated configuration file to a unique GPU and runs it in parallel.
+# 4. Logs for each specific job are saved in the 'job_logs' directory.
+
+# set -x -e
+
+# --- Configuration ---
+APPFL_HOME="/home/davjd19/APPFL"
+CONDA_ENV_NAME="appfl"
+# Polaris nodes have 4 GPUs each.
+NUM_GPUS_PER_NODE=4 
+LOG_DIR="$HOME/job_logs"
+
+# --- Environment Setup ---
+echo "Setting up environment..."
+module use /soft/modulefiles/
+module load conda
+conda activate "$CONDA_ENV_NAME"
+if [ $? -ne 0 ]; then
+    echo "Failed to activate conda environment: $CONDA_ENV_NAME"
+    exit 1
+fi
+
+cd "$APPFL_HOME/examples"
+if [ $? -ne 0 ]; then
+    echo "Failed to change directory to $APPFL_HOME/examples"
+    exit 1
+fi
+
+echo "Logging into wandb..."
+python -c "import wandb; wandb.login(key='f0d63236e16720f0455c4c8494f1fe1c337f2736')"
+
+# --- Generate Experiment Configurations ---
+echo "Generating server configurations..."
+BASE_CONFIG="resources/configs/cifar10/server_fedavg_weighted_gradient_power.yaml"
+CONFIG_DIR="resources/configs/cifar10/generated_configs"
+python generate_configs.py --base_config "$BASE_CONFIG" --output_dir "$CONFIG_DIR"
+
+# --- Job Distribution and Execution ---
+echo "Preparing to launch jobs..."
+CLIENT_CONFIG="resources/configs/cifar10/client_1.yaml"
+
+# Get the list of generated server config files
+SERVER_CONFIGS=($CONFIG_DIR/*.yaml)
+NUM_CONFIGS=${#SERVER_CONFIGS[@]}
+if [ $NUM_CONFIGS -eq 0 ]; then
+    echo "No configuration files found in $CONFIG_DIR. Exiting."
+    exit 1
+fi
+echo "Found $NUM_CONFIGS configuration files to run in '$CONFIG_DIR'."
+
+# Get list of unique nodes assigned by PBS and create a list of all available GPUs
+NODES=($(sort -u $PBS_NODEFILE))
+NUM_NODES=${#NODES[@]}
+ALL_GPUS=()
+for node in "${NODES[@]}"; do
+  for gpu_id in $(seq 0 $((NUM_GPUS_PER_NODE - 1))); do
+    ALL_GPUS+=("$node:$gpu_id")
+  done
+done
+TOTAL_GPUS=${#ALL_GPUS[@]}
+echo "Running on $NUM_NODES node(s) with a total of $TOTAL_GPUS GPUs."
+
+# Create a directory for individual job logs
+mkdir -p $LOG_DIR
+echo "Job logs will be stored in: $LOG_DIR"
+
+# This function is executed in a background subshell for each GPU.
+# It runs a sequence of jobs assigned to it.
+run_jobs_on_gpu() {
+    gpu_index=$1
+    node_and_gpu=${ALL_GPUS[$gpu_index]}
+    node=${node_and_gpu%%:*}
+    local_gpu_id=${node_and_gpu##*:}
+
+    echo "[GPU $gpu_index on $node]: Starting job queue."
+
+    # Iterate through all configs assigned to this GPU index (round-robin)
+    for job_id in $(seq $gpu_index $TOTAL_GPUS $((NUM_CONFIGS - 1))); do
+        server_config_path=${SERVER_CONFIGS[$job_id]}
+        config_filename=$(basename "$server_config_path" .yaml)
+        
+        echo "[GPU $gpu_index on $node]: Running job $job_id ($config_filename)..."
+
+        # Execute the training script sequentially on the assigned GPU
+        # The output is redirected to a unique log file.
+        ssh $node "
+          module use /soft/modulefiles/
+          module load conda
+          conda activate \"$CONDA_ENV_NAME\"
+          cd \"$APPFL_HOME/examples\"
+          
+          CUDA_VISIBLE_DEVICES=$local_gpu_id python serial/run_weighted_gradient_fl.py \
+            --server_config \"$server_config_path\" \
+            --client_config \"$CLIENT_CONFIG\" \
+            --num_clients 10 > \"$LOG_DIR/${config_filename}.out\" 2>&1
+        "
+        echo "[GPU $gpu_index on $node]: Finished job $job_id ($config_filename)."
+    done
+    echo "[GPU $gpu_index on $node]: Job queue finished."
+}
+
+# Launch a background process for each GPU to run its job queue
+for i in $(seq 0 $((TOTAL_GPUS - 1))); do
+    run_jobs_on_gpu $i &
+done
+
+
+# --- Finalization ---
+echo "Waiting for all background jobs to complete..."
+wait
+echo "All job queues have finished. Experiments are complete."
+echo "Check the log files in '$LOG_DIR' for results." 

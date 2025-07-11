@@ -1,0 +1,117 @@
+[34m[1mappfl: ✅[0m[2025-07-10 22:28:05,115 server]: Logging to ./output/result_Server_2025-07-10-22-28-05.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:28:23,378 Client1]: Logging to ./output/result_Client1_2025-07-10-22-28-23.txt
+wandb: Currently logged in as: jindavid (jindavid-massachusetts-institute-of-technology) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.20.1
+wandb: Run data is saved locally in ./output/wandb/run-20250710_222823-p1ggw64m
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run server_config_power_lambda_0.0_lr_0.001_train_batch_size_1024_clip_grad_False
+wandb: ⭐️ View project at https://wandb.ai/jindavid-massachusetts-institute-of-technology/appfl
+wandb: 🚀 View run at https://wandb.ai/jindavid-massachusetts-institute-of-technology/appfl/runs/p1ggw64m
+[34m[1mappfl: ✅[0m[2025-07-10 22:30:24,947 Client2]: Logging to ./output/result_Client2_2025-07-10-22-30-24.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:32:21,596 Client3]: Logging to ./output/result_Client3_2025-07-10-22-32-21.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:34:18,625 Client4]: Logging to ./output/result_Client4_2025-07-10-22-34-18.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:36:16,252 Client5]: Logging to ./output/result_Client5_2025-07-10-22-36-16.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:38:12,846 Client6]: Logging to ./output/result_Client6_2025-07-10-22-38-12.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:40:07,947 Client7]: Logging to ./output/result_Client7_2025-07-10-22-40-07.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:42:04,689 Client8]: Logging to ./output/result_Client8_2025-07-10-22-42-04.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:44:01,344 Client9]: Logging to ./output/result_Client9_2025-07-10-22-44-01.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:45:58,488 Client10]: Logging to ./output/result_Client10_2025-07-10-22-45-58.txt
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,360 Client1]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,361 Client1]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,361 Client1]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,361 Client1]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,361 Client1]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,396 Client2]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,396 Client2]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,396 Client2]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,396 Client2]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,397 Client2]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,430 Client3]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,430 Client3]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,431 Client3]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,431 Client3]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,431 Client3]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,464 Client4]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,464 Client4]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,465 Client4]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,465 Client4]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,465 Client4]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,499 Client5]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,499 Client5]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,500 Client5]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,500 Client5]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,500 Client5]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,535 Client6]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,535 Client6]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,535 Client6]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,535 Client6]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,535 Client6]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,571 Client7]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,571 Client7]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,571 Client7]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,571 Client7]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,571 Client7]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,606 Client8]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,606 Client8]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,606 Client8]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,607 Client8]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,607 Client8]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,640 Client9]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,640 Client9]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,640 Client9]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,641 Client9]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,641 Client9]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,674 Client10]: WeightedGradientTrainer initialized with gradient weighting: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,674 Client10]: Using uniform weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,675 Client10]: Using interpolated weights: False
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,675 Client10]: Using power transformation: True
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:54,675 Client10]: Power transformation parameter: 0.0
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:55,836 Client1]: Local label distribution: {0: 0.027820710973724884, 1: 0.0061823802163833074, 3: 0.5672333848531684, 4: 0.030911901081916538, 5: 0.17001545595054096, 8: 0.15301391035548687, 9: 0.04482225656877898}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:55,836 Client1]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 0.0, 6: 0.0, 7: 0.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:55,898 Client2]: Local label distribution: {0: 0.12035615597175314, 1: 0.03592262818544673, 2: 0.1765428308259134, 3: 0.40282468529321463, 4: 0.05894995394534848, 5: 0.08197727970525023, 6: 0.024255449800429842, 7: 0.031010132023334358, 9: 0.06816088424930918}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:55,899 Client2]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 0.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,026 Client3]: Local label distribution: {0: 0.17099056603773585, 1: 0.07606132075471699, 2: 0.057340801886792456, 3: 0.0589622641509434, 4: 0.0007370283018867925, 5: 0.0511497641509434, 6: 0.39652122641509435, 7: 0.12765330188679244, 8: 0.00589622641509434, 9: 0.0546875}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,027 Client3]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,039 Client4]: Local label distribution: {0: 0.05032467532467533, 1: 0.18019480519480519, 2: 0.04707792207792208, 3: 0.1314935064935065, 4: 0.10714285714285714, 5: 0.05519480519480519, 6: 0.05032467532467533, 7: 0.060064935064935064, 8: 0.03896103896103896, 9: 0.2792207792207792}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,039 Client4]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,253 Client5]: Local label distribution: {0: 0.009378560785344903, 1: 0.003330703830309405, 2: 0.04373740029801034, 3: 0.062319221667104914, 4: 0.3369269874660356, 5: 0.08992900341835393, 6: 0.12682969585415024, 7: 0.025418529231308617, 8: 0.13138750109562625, 9: 0.1707423963537558}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,254 Client5]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,326 Client6]: Local label distribution: {0: 0.10269140318787562, 1: 0.017245884504834073, 2: 0.22132218447870394, 3: 0.2197543767964463, 4: 0.031617454925529136, 5: 0.04206950614058009, 6: 0.0007839038411288215, 7: 0.0023517115233864646, 8: 0.04990854455186831, 9: 0.3122550300496472}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,326 Client6]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,374 Client7]: Local label distribution: {0: 0.055130784708249496, 1: 0.05432595573440644, 3: 0.014084507042253521, 4: 0.007645875251509054, 5: 0.18148893360160967, 6: 0.22575452716297786, 7: 0.04024144869215292, 8: 0.337625754527163, 9: 0.08370221327967807}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,374 Client7]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 0.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,414 Client8]: Local label distribution: {0: 0.26141278231619414, 1: 0.3277270543008169, 2: 0.13455069678039405, 4: 0.016818837097549257, 5: 0.0019221528111484864, 6: 0.04613166746756367, 7: 0.1821239788563191, 8: 0.0038443056222969728, 9: 0.025468524747717443}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,414 Client8]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 0.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,572 Client9]: Local label distribution: {0: 0.1640652925056595, 1: 0.17597998331943285, 2: 0.20100083402835697, 3: 0.01525080424162993, 4: 0.0029786727034433456, 5: 0.22566424401286786, 6: 0.005838198498748957, 7: 0.028237817228642915, 8: 0.1694269033718575, 9: 0.01155725008936018}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,572 Client9]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,769 Client10]: Local label distribution: {0: 0.0800876107037425, 1: 0.17655461384630036, 2: 0.0660889439101038, 3: 0.10713265403294925, 4: 0.06408913436815541, 5: 0.06723169221978859, 6: 0.004190077135510904, 7: 0.28387772593086374, 8: 0.08361108465860394, 9: 0.06713646319398152}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,769 Client10]: Computed label weights using standard IW with power transformation (λ=0.0): {0: 1.0, 1: 1.0, 3: 1.0, 4: 1.0, 5: 1.0, 8: 1.0, 9: 1.0, 2: 1.0, 6: 1.0, 7: 1.0}
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:56,971 Client1]:      Round      Epoch       Time Train Loss Train Accuracy
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:57,642 Client1]:          0          0     0.6695     2.2843         3.7094
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:57,895 Client1]:          0          1     0.2521     2.2828         4.6368
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:58,159 Client1]:          0          2     0.2623     2.2814         6.3369
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:58,413 Client1]:          0          3     0.2527     2.2799         9.1190
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:58,665 Client1]:          0          4     0.2511     2.2784        11.4374
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:58,673 Client2]:      Round      Epoch       Time Train Loss Train Accuracy
+[34m[1mappfl: ✅[0m[2025-07-10 22:47:59,945 Client2]:          0          0     1.2709     2.2907         5.3730
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:01,207 Client2]:          0          1     1.2600     2.2882         9.0574
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:02,447 Client2]:          0          2     1.2392     2.2863        18.0534
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:03,694 Client2]:          0          3     1.2459     2.2819        27.6328
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:04,939 Client2]:          0          4     1.2434     2.2810        34.6638
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:04,948 Client3]:      Round      Epoch       Time Train Loss Train Accuracy
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:07,504 Client3]:          0          0     2.5546     2.2997         7.4735
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:10,061 Client3]:          0          1     2.5551     2.2953         7.6061
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:12,620 Client3]:          0          2     2.5579     2.2911         7.6651
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:15,170 Client3]:          0          3     2.5484     2.2867         7.6061
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:17,730 Client3]:          0          4     2.5593     2.2826         9.4782
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:17,741 Client4]:      Round      Epoch       Time Train Loss Train Accuracy
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:17,980 Client4]:          0          0     0.2381     2.2804        21.4286
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:18,224 Client4]:          0          1     0.2423     2.2802        22.4026
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:18,472 Client4]:          0          2     0.2468     2.2799        22.8896
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:18,715 Client4]:          0          3     0.2412     2.2797        23.2143
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:18,958 Client4]:          0          4     0.2416     2.2794        23.7013
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:18,966 Client5]:      Round      Epoch       Time Train Loss Train Accuracy
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:23,261 Client5]:          0          0     4.2932     2.3071         6.4160
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:27,562 Client5]:          0          1     4.3001     2.3019        12.5164
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:31,868 Client5]:          0          2     4.3040     2.2963        15.8647
+[34m[1mappfl: ✅[0m[2025-07-10 22:48:36,182 Client5]:          0          3     4.3129     2.2908        16.8726

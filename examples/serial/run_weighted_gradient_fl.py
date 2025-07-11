@@ -16,6 +16,7 @@ from appfl.algorithm.trainer.weighted_gradient_trainer import compute_global_lab
 from torch.utils.data import DataLoader
 import torch
 import numpy as np
+import os
 
 import wandb
 
@@ -58,6 +59,10 @@ argparser.add_argument(
 argparser.add_argument("--num_clients", type=int, default=10)
 args = argparser.parse_args()
 
+# Generate experiment name from server config filename
+server_config_filename = os.path.basename(args.server_config)
+exp_name = os.path.splitext(server_config_filename)[0]
+
 # Load server agent configurations and set the number of clients
 server_agent_config = OmegaConf.load(args.server_config)
 server_agent_config.server_configs.num_clients = args.num_clients
@@ -81,6 +86,7 @@ for i in range(args.num_clients):
     if hasattr(client_agent_configs[i], "wandb_configs") and client_agent_configs[
         i
     ].wandb_configs.get("enable_wandb", False):
+        client_agent_configs[i].wandb_configs.exp_name = exp_name
         if i == 0:
             client_agent_configs[i].wandb_configs.enable_wandb = True
         else:
