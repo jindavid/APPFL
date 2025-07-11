@@ -40,7 +40,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Logging into wandb..."
-python -c "import wandb; wandb.login(key='f0d63236e16720f0455c4c8494f1fe1c337f2736')"
+python -c "import wandb; wandb.login(key='')"
 
 # --- Generate Experiment Configurations ---
 echo "Generating server configurations..."
