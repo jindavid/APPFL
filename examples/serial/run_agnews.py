@@ -1,6 +1,7 @@
 """
-Serial simulation of SCAFFOLD Federated learning on AG_NEWS dataset.
-This script runs the SCAFFOLD algorithm with gradient weighting on the AG_NEWS text classification task.
+Serial simulation of Federated learning on AG_NEWS dataset.
+This script supports both FedAvg and SCAFFOLD algorithms with gradient weighting on the AG_NEWS text classification task.
+The script automatically detects the aggregator type and uses the appropriate communication pattern.
 """
 
 import argparse
@@ -13,24 +14,31 @@ import wandb
 def compute_model_differences(local_model, global_model):
     """
     Compute sum of squared differences between local and global model weights.
+    Handles both flat parameter dicts (FedAvg) and structured dicts (SCAFFOLD).
     
     Args:
-        local_model: Structured dict with 'model_state' section
-        global_model: Structured dict with 'model_state' section
+        local_model: Local model parameters (dict or structured dict)
+        global_model: Global model parameters (dict or structured dict)
         
     Returns:
         float: Sum of squared differences
     """
-    # Extract model states from structured format
-    local_model_state = local_model["model_state"]
-    global_model_state = global_model["model_state"]
+    # Extract model state dicts from potentially structured formats
+    def extract_model_state(model_params):
+        if isinstance(model_params, dict) and "model_state" in model_params:
+            return model_params["model_state"]
+        else:
+            return model_params
+    
+    local_state = extract_model_state(local_model)
+    global_state = extract_model_state(global_model)
     
     all_diffs = []
     
-    for param_name in local_model_state.keys():
-        if param_name in global_model_state:
-            local_param = local_model_state[param_name]
-            global_param = global_model_state[param_name]
+    for param_name in local_state.keys():
+        if param_name in global_state:
+            local_param = local_state[param_name]
+            global_param = global_state[param_name]
             
             # Compute squared differences
             diff = (local_param - global_param) ** 2
@@ -89,12 +97,17 @@ argparser.add_argument("--alpha", type=float, default=0.5,
                       help="Dirichlet alpha parameter for non-IID partitioning")
 args = argparser.parse_args()
 
-print(f"Running AG_NEWS SCAFFOLD experiment with {args.num_clients} clients")
+print(f"Running AG_NEWS federated learning experiment with {args.num_clients} clients")
 print(f"Partition strategy: {args.partition_strategy}, Alpha: {args.alpha}")
 
 # Load server agent configurations and set the number of clients
 server_agent_config = OmegaConf.load(args.server_config)
 server_agent_config.server_configs.num_clients = args.num_clients
+
+# Detect if we're using SCAFFOLD based on aggregator type
+is_scaffold = "SCAFFOLD" in server_agent_config.server_configs.aggregator
+algorithm_name = "SCAFFOLD" if is_scaffold else "FedAvg"
+print(f"Detected aggregator: {algorithm_name}")
 
 # Create server agent
 server_agent = ServerAgent(server_agent_config=server_agent_config)
@@ -158,7 +171,7 @@ for i in range(args.num_clients):
         client_id=client_agents[i].get_id(), sample_size=sample_size
     )
 
-print("\nStarting federated training...")
+print(f"\nStarting {algorithm_name} federated training...")
 round_num = 0
 
 while not server_agent.training_finished():
@@ -166,6 +179,7 @@ while not server_agent.training_finished():
     print(f"\n=== Round {round_num} ===")
     
     local_models_for_comparison = []
+    new_global_models = []
     
     for i, client_agent in enumerate(client_agents):
         print(f"Training {client_agent.get_id()}...")
@@ -181,18 +195,32 @@ while not server_agent.training_finished():
         # Store local model for comparison later
         local_models_for_comparison.append((client_agent.get_id(), local_model.copy()))
         
-        # "Send" local model to server 
-        # For SCAFFOLD, only block on the last client to ensure proper aggregation
-        is_last_client = (i == len(client_agents) - 1)
-        server_agent.global_update(
-            client_id=client_agent.get_id(),
-            local_model=local_model,
-            blocking=is_last_client,
-            **metadata,
-        )
+        if is_scaffold:
+            # SCAFFOLD communication pattern: block on last client
+            is_last_client = (i == len(client_agents) - 1)
+            server_agent.global_update(
+                client_id=client_agent.get_id(),
+                local_model=local_model,
+                blocking=is_last_client,
+                **metadata,
+            )
+        else:
+            # FedAvg communication pattern: use futures
+            new_global_model_future = server_agent.global_update(
+                client_id=client_agent.get_id(),
+                local_model=local_model,
+                blocking=False,
+                **metadata,
+            )
+            new_global_models.append(new_global_model_future)
     
-    # Get the aggregated global model with control variates
-    aggregated_global_model = server_agent.get_parameters(serial_run=True)
+    # Get the aggregated global model
+    if is_scaffold:
+        # For SCAFFOLD: get model with control variates from server
+        aggregated_global_model = server_agent.get_parameters(serial_run=True)
+    else:
+        # For FedAvg: get model from futures
+        aggregated_global_model = new_global_models[0].result()
     
     # Compute differences between local models and aggregated global model
     diffs = []
@@ -211,8 +239,14 @@ while not server_agent.training_finished():
     print(f"  Mean difference: {overall_mean_diff:.6f}")
     
     # Load the new global model to all clients
-    for client_agent in client_agents:
-        client_agent.load_parameters(aggregated_global_model)
+    if is_scaffold:
+        # For SCAFFOLD: load the model with control variates
+        for client_agent in client_agents:
+            client_agent.load_parameters(aggregated_global_model)
+    else:
+        # For FedAvg: load from futures
+        for client_agent, new_global_model_future in zip(client_agents, new_global_models):
+            client_agent.load_parameters(new_global_model_future.result())
     
     # Server validation
     val_loss, val_accuracy = server_agent.server_validate()
@@ -227,4 +261,4 @@ while not server_agent.training_finished():
         "mean_diff": overall_mean_diff,
     })
 
-print(f"\nTraining completed after {round_num} rounds!") 
+print(f"\n{algorithm_name} training completed after {round_num} rounds!") 
