@@ -237,9 +237,17 @@ class SCAFFOLDAggregator(BaseAggregator):
             }
 
         # Update server control variates: c ← c + (1/N) * Σ(c_i^+ - c_i)
+        total_update_norm = 0.0
         for name in self.server_control_variates:
             if name in control_variate_delta:
-                self.server_control_variates[name] += control_variate_delta[name] / num_participating_clients
+                update = control_variate_delta[name] / num_participating_clients
+                self.server_control_variates[name] += update
+                total_update_norm += torch.norm(update).item() ** 2
+        
+        # Debug: Print magnitude of server control variate updates
+        print(f"SCAFFOLD DEBUG: Server CV update norm = {total_update_norm**0.5:.8f}")
+        total_server_cv_norm = sum(torch.norm(cv).item() for cv in self.server_control_variates.values())
+        print(f"SCAFFOLD DEBUG: Total server CV norm after update = {total_server_cv_norm:.8f}")
 
     def get_server_control_variates(self) -> Optional[Dict[str, torch.Tensor]]:
         """

@@ -99,6 +99,29 @@ class SCAFFOLDTrainer(BaseTrainer):
         }
         print(f"SCAFFOLD INFO: Client control variates initialized in __init__ with {len(self.client_control_variates)} parameters")
 
+        # Gradient weighting attributes from WeightedGradientTrainer
+        self.label_weights = {}
+        self.use_gradient_weighting = self.train_configs.get("use_gradient_weighting", False)
+        self.use_uniform_weights = self.train_configs.get("use_uniform_weights", False)
+        self.use_interpolated_weights = self.train_configs.get("use_interpolated_weights", False)
+        self.lambda_interp = self.train_configs.get("lambda_interp", 0.5)
+        self.use_power = self.train_configs.get("use_power", False)
+        self.power_lambda = self.train_configs.get("power_lambda", 0.5)
+        self.global_label_distribution = {}
+        self.local_label_distribution = {}
+
+        if self.use_gradient_weighting and self.logger:
+            self.logger.info("SCAFFOLD with gradient weighting enabled.")
+            self.logger.info(f"Using uniform weights: {self.use_uniform_weights}")
+            self.logger.info(f"Using interpolated weights: {self.use_interpolated_weights}")
+            self.logger.info(f"Using power transformation: {self.use_power}")
+            if self.use_power:
+                self.logger.info(f"Power transformation parameter: {self.power_lambda}")
+            if self.use_interpolated_weights:
+                self.logger.info(f"Lambda interpolation parameter: {self.lambda_interp}")
+        
+        self._sanity_check()
+
     def load_parameters(self, params: Dict, **kwargs):
         """
         Override BaseTrainer.load_parameters to handle SCAFFOLD control variates.
@@ -116,11 +139,21 @@ class SCAFFOLDTrainer(BaseTrainer):
         self.server_control_variates = server_control_variates
         
         print(f"SCAFFOLD INFO: Client received server control variates with {len(server_control_variates)} parameters")
+        
+        # Debug: Check if server control variates are non-zero
+        if server_control_variates:
+            total_server_cv_norm = sum(torch.norm(cv).item() for cv in server_control_variates.values())
+            print(f"SCAFFOLD DEBUG: Server CV total norm = {total_server_cv_norm:.8f}")
 
     def train(self, **kwargs):
         """
         Train the model using the SCAFFOLD algorithm for a certain number of local epochs or steps.
         """
+        print("SCAFFOLD DEBUG: Starting SCAFFOLD training!")
+        print(f"SCAFFOLD DEBUG: Server control variates available: {self.server_control_variates is not None}")
+        if self.server_control_variates:
+            total_server_norm = sum(torch.norm(cv).item() for cv in self.server_control_variates.values())
+            print(f"SCAFFOLD DEBUG: Server control variates total norm: {total_server_norm:.8f}")
         if "round" in kwargs:
             self.round = kwargs["round"]
         self.val_results = {"round": self.round + 1}
@@ -175,6 +208,9 @@ class SCAFFOLDTrainer(BaseTrainer):
         if self.round == 0:
             self.logger.log_title(title)
         self.logger.set_title(title)
+        
+        # Store the batch count at the start of the round
+        self._initial_batch_count = getattr(self, '_batch_count', 0)
 
         if do_pre_validation:
             val_loss, val_accuracy = self._validate()
@@ -270,7 +306,7 @@ class SCAFFOLDTrainer(BaseTrainer):
                 train_loss += loss
                 target_true.append(label)
                 target_pred.append(pred)
-            train_loss /= len(self.train_dataloader)
+            train_loss /= self.train_configs.num_local_steps
             target_true, target_pred = (
                 np.concatenate(target_true),
                 np.concatenate(target_pred),
@@ -319,8 +355,20 @@ class SCAFFOLDTrainer(BaseTrainer):
         if self.device_config["device_type"] == "gpu-multi":
             self.model = self.model.module.to(self.device)
 
+        # Print the actual number of batches trained
+        actual_batches_trained = self._batch_count - self._initial_batch_count
+        print(f"SCAFFOLD DEBUG: Actual batches trained this round: {actual_batches_trained}")
+
+        # Get local learning rate from optimizer configs
+        local_lr = self.train_configs.optim_args.get("lr")
+        if local_lr is None:
+            raise ValueError("Learning rate 'lr' must be specified in 'optim_args' for SCAFFOLD.")
+
         # Update client control variates using SCAFFOLD formula
-        self._update_client_control_variates()
+        self._update_client_control_variates(
+            num_local_steps=actual_batches_trained, 
+            local_lr=local_lr
+        )
 
         self.round += 1
 
@@ -373,6 +421,95 @@ class SCAFFOLDTrainer(BaseTrainer):
             if hasattr(self, "val_results")
             else result
         )
+
+    def set_global_label_distribution(self, global_distribution: Dict[int, float]):
+        """
+        Set the global label distribution and compute weights. This method is from WeightedGradientTrainer.
+        
+        Args:
+            global_distribution: Dictionary mapping label to global probability
+        """
+        self.global_label_distribution = global_distribution
+        self._compute_label_weights()
+
+    def _compute_local_label_distribution(self):
+        """
+        Compute the local label distribution for this client's training dataset. From WeightedGradientTrainer.
+        """
+        if self.train_dataset is None:
+            if self.logger:
+                self.logger.warning("No training dataset available for label distribution computation")
+            return
+            
+        label_counts = {}
+        total_samples = 0
+        
+        temp_loader = DataLoader(
+            self.train_dataset,
+            batch_size=self.train_configs.get("train_batch_size", 32),
+            shuffle=False,
+            num_workers=0
+        )
+        
+        for batch in temp_loader:
+            _, targets = batch
+            if torch.is_tensor(targets):
+                targets = targets.numpy()
+            
+            unique_labels, counts = np.unique(targets, return_counts=True)
+            for label, count in zip(unique_labels, counts):
+                label = int(label)
+                label_counts[label] = label_counts.get(label, 0) + count
+                total_samples += count
+        
+        self.local_label_distribution = {}
+        for label, count in label_counts.items():
+            self.local_label_distribution[label] = count / total_samples
+            
+        if self.logger:
+            self.logger.info(f"Local label distribution: {self.local_label_distribution}")
+
+    def _compute_label_weights(self):
+        """
+        Compute label weights based on global vs local distribution. From WeightedGradientTrainer.
+        """
+        if not self.global_label_distribution:
+            if self.logger:
+                self.logger.warning("Global label distribution not set. Cannot compute weights.")
+            return
+            
+        if not self.local_label_distribution:
+            self._compute_local_label_distribution()
+        
+        if self.use_uniform_weights:
+            self.label_weights = {label: 1.0 for label in self.global_label_distribution}
+            if self.logger:
+                self.logger.info(f"Using uniform weights (all weights = 1.0): {self.label_weights}")
+            return
+        
+        self.label_weights = {}
+        for label in self.global_label_distribution:
+            global_prob = self.global_label_distribution[label]
+            local_prob = self.local_label_distribution.get(label, 0.0)
+            
+            if local_prob > 0:
+                if self.use_interpolated_weights:
+                    denominator = (1 - self.lambda_interp) * local_prob + self.lambda_interp * global_prob
+                    weight = global_prob / denominator if denominator > 0 else 0.0
+                else:
+                    weight = global_prob / local_prob
+            else:
+                weight = 0.0
+            
+            if weight > 0 and self.use_power:
+                weight = np.power(weight, self.power_lambda)
+                
+            self.label_weights[label] = weight
+        
+        if self.logger:
+            method_info = f" using interpolated IW (λ={self.lambda_interp})" if self.use_interpolated_weights else " using standard IW"
+            transformation_info = f" with power transformation (λ={self.power_lambda})" if self.use_power else ""
+            self.logger.info(f"Computed label weights{method_info}{transformation_info}: {self.label_weights}")
 
     def _sanity_check(self):
         """
@@ -428,22 +565,47 @@ class SCAFFOLDTrainer(BaseTrainer):
         :param target: target label
         :return: loss, prediction, label
         """
+        if not hasattr(self, '_batch_count'):
+            self._batch_count = 0
+        self._batch_count += 1
+        
         device = self.device
         data = data.to(device)
         target = target.to(device)
         
         optimizer.zero_grad()
         output = self.model(data)
-        loss = self.loss_fn(output, target)
+
+        if self.use_gradient_weighting and self.label_weights:
+            batch_size = data.size(0)
+            if batch_size == 0:
+                return 0.0, np.array([]), np.array([])
+            
+            total_weighted_loss = 0.0
+            for i in range(batch_size):
+                sample_label = target[i].item()
+                weight = self.label_weights.get(sample_label, 1.0)
+                
+                sample_output = output[i:i+1]
+                sample_target = target[i:i+1]
+                sample_loss = self.loss_fn(sample_output, sample_target)
+                
+                weighted_loss = weight * sample_loss
+                total_weighted_loss += weighted_loss
+            
+            loss = total_weighted_loss / batch_size
+        else:
+            loss = self.loss_fn(output, target)
+
         loss.backward()
         
         # Apply SCAFFOLD correction to gradients
         for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                    # Apply SCAFFOLD correction: g_i(y_i) - c_i + c
+            if param.requires_grad and param.grad is not None:
+                # Apply SCAFFOLD correction: g_i(y_i) - c_i + c
                 client_cv = self.client_control_variates[name].to(device)
                 server_cv = self.server_control_variates[name].to(device)
-                param.grad.data = param.grad.data - client_cv + server_cv
+                param.grad.data.add_(-client_cv).add_(server_cv) # In-place is more efficient
         
         if getattr(self.train_configs, "clip_grad", False) or getattr(
             self.train_configs, "use_dp", False
@@ -463,47 +625,48 @@ class SCAFFOLDTrainer(BaseTrainer):
         optimizer.step()
         return loss.item(), output.detach().cpu().numpy(), target.detach().cpu().numpy()
 
-    def _update_client_control_variates(self):
+    def _update_client_control_variates(self, num_local_steps: int, local_lr: float):
         """
-        Update client control variates using SCAFFOLD formula.
-        
-        SCAFFOLD client control variate update:
+        Update client control variates based on the change in model parameters.
         c_i^+ = c_i - c + (1/(K*η_l)) * (x - y_i)
-        
-        Where:
-        - c_i^+: new client control variate
-        - c_i: old client control variate  
-        - c: server control variate
-        - K: number of local steps/epochs
-        - η_l: local learning rate
-        - x: initial model parameters (at start of round)
-        - y_i: final model parameters (after local training)
         """
+        print("SCAFFOLD DEBUG: Updating client control variates...")
+        if num_local_steps == 0 or local_lr == 0:
+            print("SCAFFOLD WARNING: num_local_steps or local_lr is zero, skipping control variate update.")
+            return
 
-        
-        # Get local learning rate and number of local steps
-        local_lr = self.train_configs.optim_args.lr
-        if self.train_configs.mode == "epoch":
-            # Approximate number of steps per epoch
-            steps_per_epoch = len(self.train_dataloader)
-            num_local_steps = self.train_configs.num_local_epochs * steps_per_epoch
-        else:
-            num_local_steps = self.train_configs.num_local_steps
-        
-        # Update client control variates
         device = self.device
-        for name, param in self.model.named_parameters():
-            if name in self.client_control_variates:
-                    # c_i^+ = c_i - c + (1/(K*η_l)) * (x - y_i)
-                    # Ensure all tensors are on the same device as the model for efficient computation
-                    old_client_cv = self.client_control_variates[name].to(device)
-                    server_cv = self.server_control_variates[name].to(device)
-                    initial_param = self.initial_model_state[name].to(device)
-                    final_param = param.data  # Already on model device
-                    
-                    correction_term = (initial_param - final_param) / (num_local_steps * local_lr)
-                    
-                    # Store result on CPU for consistency and communication
-                    self.client_control_variates[name] = (
-                        old_client_cv - server_cv + correction_term
-                    ).cpu() 
+        divisor = num_local_steps * local_lr
+        current_model_state = self.model.state_dict()
+
+        for name in self.client_control_variates:
+            # Move all tensors to the same device for computation
+            initial_param = self.initial_model_state[name].to(device)
+            final_param = current_model_state[name].to(device) # Ensure this is also on the correct device
+            old_client_cv = self.client_control_variates[name].to(device)
+            server_cv = self.server_control_variates[name].to(device)
+
+            # c_i^+ = c_i - c + (x - y_i) / (K * η_l)
+            param_change = initial_param - final_param
+            correction_term = param_change / divisor
+            
+            new_client_cv = old_client_cv - server_cv + correction_term
+            # Store the updated control variate back on the CPU
+            self.client_control_variates[name] = new_client_cv.cpu()
+
+        # Debugging norms (with device correction)
+        param_change_norm = torch.norm(
+            torch.cat([
+                (self.initial_model_state[n].to(device) - current_model_state[n].to(device)).view(-1)
+                for n in self.initial_model_state
+            ])
+        ).item()
+        
+        # client_control_variates are on CPU now, so no need to move for norm calculation
+        client_cv_norm = torch.norm(
+            torch.cat([cv.view(-1) for cv in self.client_control_variates.values()])
+        ).item()
+        
+        print(f"SCAFFOLD DEBUG: Update divisor (K * η_l) = {divisor:.6f}")
+        print(f"SCAFFOLD DEBUG: Total model parameter change norm (x - y): {param_change_norm:.8f}")
+        print(f"SCAFFOLD DEBUG: Updated client CV norm (c_i^+): {client_cv_norm:.8f}")
