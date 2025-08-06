@@ -8,12 +8,12 @@ client_configs:
     optim_args:
       lr: 0.01
     # Loss function
-    loss_fn_path: "../resources/loss/celoss.py"
+    loss_fn_path: "./resources/loss/celoss.py"
     loss_fn_name: "CELoss"
     # Client validation
     do_validation: False
     do_pre_validation: False
-    metric_path: "../resources/metric/acc.py"
+    metric_path: "./resources/metric/acc.py"
     metric_name: "accuracy"
     # Gradient weighting configuration
     use_gradient_weighting: True
@@ -36,7 +36,7 @@ client_configs:
     val_data_shuffle: False
 
   model_configs:
-    model_path: "../resources/model/text_cnn.py"
+    model_path: "./resources/model/text_cnn.py"
     model_name: "TextCNN"
     model_kwargs:
       vocab_size: 30522  # BERT tokenizer vocab size
@@ -74,5 +74,5 @@ server_configs:
       max_message_size: 1048576
       use_ssl: False
   val_data_configs:
-    dataset_path: "../resources/dataset/agnews_dataset.py"
+    dataset_path: "./resources/dataset/agnews_dataset.py"
     dataset_name: "get_agnews_val_global" 
